@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elb"
 
 	mkr "github.com/mackerelio/mackerel-client-go"
+	"github.com/mackerelio/mkr/logger"
 )
 
 // ELB type
@@ -19,8 +20,18 @@ type ELB struct {
 	HostID  string
 }
 
-func fetchLoadBalancerList(sess client.ConfigProvider) []*ELB {
-	svc := elb.New(sess)
+// AWSSession ...
+type AWSSession struct {
+	Sess client.ConfigProvider
+}
+
+// NewAWSSession ...
+func NewAWSSession(sess client.ConfigProvider) *AWSSession {
+	return &AWSSession{Sess: sess}
+}
+
+func (s *AWSSession) fetchLoadBalancerList() []*ELB {
+	svc := elb.New(s.Sess)
 
 	params := &elb.DescribeLoadBalancersInput{}
 	resp, err := svc.DescribeLoadBalancers(params)
@@ -30,14 +41,12 @@ func fetchLoadBalancerList(sess client.ConfigProvider) []*ELB {
 		return []*ELB{}
 	}
 
-	//fmt.Println(resp)
 	var elbs []*ELB
 	for _, lbd := range resp.LoadBalancerDescriptions {
 		elbs = append(elbs, &ELB{
 			Name:    *lbd.LoadBalancerName,
 			DNSName: *lbd.DNSName,
 		})
-		//return elbs
 	}
 	return elbs
 }
@@ -79,14 +88,14 @@ var graphdefs = map[string](Graphs){
 	},
 }
 
-func getELBsMetricStatistics(sess client.ConfigProvider, elbs []*ELB) {
+func (s *AWSSession) getELBsMetricStatistics(elbs []*ELB) {
 	for _, elb := range elbs {
-		getELBMetricStatistics(sess, elb)
+		s.getELBMetricStatistics(elb)
 	}
 }
 
-func getELBMetricStatistics(sess client.ConfigProvider, elb *ELB) []*mkr.MetricValue {
-	svc := cloudwatch.New(sess)
+func (s *AWSSession) getELBMetricStatistics(elb *ELB) []*mkr.MetricValue {
+	svc := cloudwatch.New(s.Sess)
 	/*
 		metricnames := []string{
 			"HealthyHostCount", "UnHealthyHostCount",
@@ -148,4 +157,45 @@ func getELBMetricStatistics(sess client.ConfigProvider, elb *ELB) []*mkr.MetricV
 		}
 	}
 	return metricValues
+}
+
+func (s *AWSSession) updateELBList(client *mkr.Client) []*ELB {
+	elbs := s.fetchLoadBalancerList()
+	for _, elb := range elbs {
+		hosts, err := client.FindHosts(&mkr.FindHostsParam{Name: elb.DNSName})
+		if err != nil {
+			logger.Log("error", fmt.Sprintf("Mackerel FindHosts: %s", err.Error()))
+			continue
+		}
+
+		if len(hosts) == 1 {
+			elb.HostID = hosts[0].ID
+			logger.Log("info", fmt.Sprintf("Host Found: %s -> %s", hosts[0].ID, hosts[0].Name))
+		}
+		if len(hosts) == 0 {
+			elb.HostID, err = client.CreateHost(&mkr.CreateHostParam{
+				Name: elb.DNSName,
+			})
+			if err != nil {
+				logger.Log("error", fmt.Sprintf("Mackerel CreateHost: %s", err.Error()))
+			}
+		}
+	}
+	return elbs
+}
+
+func (s *AWSSession) crawlELBMetrics(client *mkr.Client, elbs []*ELB) {
+	for _, elb := range elbs {
+		metricValues := s.getELBMetricStatistics(elb)
+		logger.Log("info", fmt.Sprintf("%s", metricValues))
+		err := client.PostHostMetricValuesByHostID(elb.HostID, metricValues)
+		//logger.DieIf(err)
+		if err != nil {
+			logger.Log("error", err.Error())
+		}
+
+		for _, metric := range metricValues {
+			logger.Log("thrown", fmt.Sprintf("%s '%s\t%f\t%d'", elb.HostID, metric.Name, metric.Value, metric.Time))
+		}
+	}
 }
