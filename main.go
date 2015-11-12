@@ -15,6 +15,20 @@ import (
 	"github.com/mackerelio/mkr/logger"
 )
 
+// Metrics ...
+type Metrics struct {
+	Name       string `json:"name"`
+	Label      string `json:"label"`
+	Statistics string `json:"statistics"`
+}
+
+// Graphs ...
+type Graphs struct {
+	Label   string    `json:"label"`
+	Unit    string    `json:"unit"`
+	Metrics []Metrics `json:"metrics"`
+}
+
 func updateELBList(sess client.ConfigProvider, client *mkr.Client) []*ELB {
 	elbs := fetchLoadBalancerList(sess)
 	for _, elb := range elbs {

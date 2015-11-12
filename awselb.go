@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/elb"
 
-	mp "github.com/mackerelio/go-mackerel-plugin-helper"
 	mkr "github.com/mackerelio/mackerel-client-go"
 )
 
@@ -43,39 +42,39 @@ func fetchLoadBalancerList(sess client.ConfigProvider) []*ELB {
 	return elbs
 }
 
-var graphdefs = map[string](mp.Graphs){
-	"elb.hostcount": mp.Graphs{
+var graphdefs = map[string](Graphs){
+	"elb.hostcount": Graphs{
 		Label: "Host Count",
 		Unit:  "integer",
-		Metrics: [](mp.Metrics){
-			mp.Metrics{Name: "HealthyHostCount", Label: "Healthy Host Count", Diff: false},
-			mp.Metrics{Name: "UnHealthyHostCount", Label: "UnHealthy Host Count", Diff: false},
+		Metrics: [](Metrics){
+			Metrics{Name: "HealthyHostCount", Label: "Healthy Host Count"},
+			Metrics{Name: "UnHealthyHostCount", Label: "UnHealthy Host Count"},
 		},
 	},
-	"elb.httpcode": mp.Graphs{
+	"elb.httpcode": Graphs{
 		Label: "HTTP Code Count",
 		Unit:  "integer",
-		Metrics: [](mp.Metrics){
-			mp.Metrics{Name: "HTTPCode_Backend_2XX", Label: "Backend 2XX", Diff: false},
-			mp.Metrics{Name: "HTTPCode_Backend_3XX", Label: "Backend 3XX", Diff: false},
-			mp.Metrics{Name: "HTTPCode_Backend_4XX", Label: "Backend 4XX", Diff: false},
-			mp.Metrics{Name: "HTTPCode_Backend_5XX", Label: "Backend 5XX", Diff: false},
-			mp.Metrics{Name: "HTTPCode_ELB_4XX", Label: "ELB 4XX", Diff: false},
-			mp.Metrics{Name: "HTTPCode_ELB_5XX", Label: "ELB 5XX", Diff: false},
+		Metrics: [](Metrics){
+			Metrics{Name: "HTTPCode_Backend_2XX", Label: "Backend 2XX", Statistics: "sum"},
+			Metrics{Name: "HTTPCode_Backend_3XX", Label: "Backend 3XX", Statistics: "sum"},
+			Metrics{Name: "HTTPCode_Backend_4XX", Label: "Backend 4XX", Statistics: "sum"},
+			Metrics{Name: "HTTPCode_Backend_5XX", Label: "Backend 5XX", Statistics: "sum"},
+			Metrics{Name: "HTTPCode_ELB_4XX", Label: "ELB 4XX", Statistics: "sum"},
+			Metrics{Name: "HTTPCode_ELB_5XX", Label: "ELB 5XX", Statistics: "sum"},
 		},
 	},
-	"elb.latency": mp.Graphs{
+	"elb.latency": Graphs{
 		Label: "Latency",
 		Unit:  "float",
-		Metrics: [](mp.Metrics){
-			mp.Metrics{Name: "Latency", Label: "Latency", Diff: false},
+		Metrics: [](Metrics){
+			Metrics{Name: "Latency", Label: "Latency"},
 		},
 	},
-	"elb.requestcount": mp.Graphs{
+	"elb.requestcount": Graphs{
 		Label: "Request Count",
 		Unit:  "integer",
-		Metrics: [](mp.Metrics){
-			mp.Metrics{Name: "RequestCount", Label: "Request Count", Diff: false},
+		Metrics: [](Metrics){
+			Metrics{Name: "RequestCount", Label: "Request Count", Statistics: "sum"},
 		},
 	},
 }
@@ -105,6 +104,10 @@ func getELBMetricStatistics(sess client.ConfigProvider, elb *ELB) []*mkr.MetricV
 	for key, graphdef := range graphdefs {
 		for _, metrics := range graphdef.Metrics {
 
+			statistics := metrics.Statistics
+			if metrics.Statistics == "" {
+				statistics = "average"
+			}
 			params := &cloudwatch.GetMetricStatisticsInput{
 				EndTime:    aws.Time(time.Now()),
 				MetricName: aws.String(metrics.Name),
@@ -112,7 +115,7 @@ func getELBMetricStatistics(sess client.ConfigProvider, elb *ELB) []*mkr.MetricV
 				Period:     aws.Int64(60),
 				StartTime:  aws.Time(time.Now().Add(-1 * time.Minute)),
 				Statistics: []*string{
-					aws.String("Sum"),
+					aws.String(statistics),
 				},
 				Dimensions: []*cloudwatch.Dimension{
 					{
