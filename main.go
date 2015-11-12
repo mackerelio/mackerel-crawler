@@ -43,15 +43,22 @@ func doAction(c *cli.Context) {
 		sess.Config.LogLevel = aws.LogLevel(aws.LogDebug)
 	}
 
-	elbs := awsSession.updateELBList(client)
+	rdss := awsSession.fetchRDSList()
+	awsSession.updateAWSElementList(rdss, client)
+
+	elbs := awsSession.fetchLoadBalancerList()
+	awsSession.updateAWSElementList(elbs, client)
 
 	tickChan := time.NewTicker(60 * time.Second)
 	quit := make(chan struct{})
+
+	awsSession.crawlRDSMetrics(client, rdss)
 
 	for {
 		select {
 		case <-tickChan.C:
 			awsSession.crawlELBMetrics(client, elbs)
+			awsSession.crawlRDSMetrics(client, rdss)
 		case <-quit:
 			tickChan.Stop()
 			return
