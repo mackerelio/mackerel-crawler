@@ -55,12 +55,12 @@ var graphdefs = map[string](Graphs){
 		Label: "HTTP Code Count",
 		Unit:  "integer",
 		Metrics: [](Metrics){
-			Metrics{Name: "HTTPCode_Backend_2XX", Label: "Backend 2XX", Statistics: "sum"},
-			Metrics{Name: "HTTPCode_Backend_3XX", Label: "Backend 3XX", Statistics: "sum"},
-			Metrics{Name: "HTTPCode_Backend_4XX", Label: "Backend 4XX", Statistics: "sum"},
-			Metrics{Name: "HTTPCode_Backend_5XX", Label: "Backend 5XX", Statistics: "sum"},
-			Metrics{Name: "HTTPCode_ELB_4XX", Label: "ELB 4XX", Statistics: "sum"},
-			Metrics{Name: "HTTPCode_ELB_5XX", Label: "ELB 5XX", Statistics: "sum"},
+			Metrics{Name: "HTTPCode_Backend_2XX", Label: "Backend 2XX", Statistics: "Sum"},
+			Metrics{Name: "HTTPCode_Backend_3XX", Label: "Backend 3XX", Statistics: "Sum"},
+			Metrics{Name: "HTTPCode_Backend_4XX", Label: "Backend 4XX", Statistics: "Sum"},
+			Metrics{Name: "HTTPCode_Backend_5XX", Label: "Backend 5XX", Statistics: "Sum"},
+			Metrics{Name: "HTTPCode_ELB_4XX", Label: "ELB 4XX", Statistics: "Sum"},
+			Metrics{Name: "HTTPCode_ELB_5XX", Label: "ELB 5XX", Statistics: "Sum"},
 		},
 	},
 	"elb.latency": Graphs{
@@ -74,7 +74,7 @@ var graphdefs = map[string](Graphs){
 		Label: "Request Count",
 		Unit:  "integer",
 		Metrics: [](Metrics){
-			Metrics{Name: "RequestCount", Label: "Request Count", Statistics: "sum"},
+			Metrics{Name: "RequestCount", Label: "Request Count", Statistics: "Sum"},
 		},
 	},
 }
@@ -106,7 +106,7 @@ func getELBMetricStatistics(sess client.ConfigProvider, elb *ELB) []*mkr.MetricV
 
 			statistics := metrics.Statistics
 			if metrics.Statistics == "" {
-				statistics = "average"
+				statistics = "Average"
 			}
 			params := &cloudwatch.GetMetricStatisticsInput{
 				EndTime:    aws.Time(time.Now()),
@@ -131,10 +131,17 @@ func getELBMetricStatistics(sess client.ConfigProvider, elb *ELB) []*mkr.MetricV
 			}
 
 			for _, dp := range resp.Datapoints {
-				fmt.Println(elb.Name, metrics.Name, *(dp.Sum))
+				var value float64
+				switch statistics {
+				case "Sum":
+					value = *(dp.Sum)
+				default:
+					value = *(dp.Average)
+				}
+				fmt.Println(elb.Name, metrics.Name, value)
 				metricValues = append(metricValues, &mkr.MetricValue{
 					Name:  "custom." + key + "." + metrics.Name,
-					Value: *(dp.Sum),
+					Value: value,
 					Time:  dp.Timestamp.Unix(),
 				})
 			}
