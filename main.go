@@ -29,13 +29,14 @@ type Graphs struct {
 func doAction(c *cli.Context) {
 	awsKeyID := c.String("aws-key-id")
 	awsSecKey := c.String("aws-secret-key")
+	awsRegion := c.String("aws-region")
 	mackerelAPIKey := c.String("mackerel-api-key")
 
 	client := mkr.NewClient(mackerelAPIKey)
 
 	sess := session.New(&aws.Config{
 		Credentials: credentials.NewStaticCredentials(awsKeyID, awsSecKey, ""),
-		Region:      aws.String("ap-northeast-1"),
+		Region:      aws.String(awsRegion),
 	})
 	awsSession := NewAWSSession(sess)
 
@@ -84,6 +85,11 @@ func main() {
 			Name:   "aws-secret-key",
 			Usage:  "AWS Secret Key",
 			EnvVar: "AWS_SECRET_ACCESS_KEY",
+		},
+		cli.StringFlag{
+			Name:   "aws-region",
+			Usage:  "AWS region",
+			EnvVar: "AWS_REGION",
 		},
 		cli.StringFlag{
 			Name:   "mackerel-api-key",
