@@ -7,7 +7,7 @@ mackerel-crawler --provider aws --key xxx
 ## AWS provider
 
 - `--aws-key-id` api key for fetching metric from provider
-- `--aws-sec-key` api secret key for fetching metric from provider
+- `--aws-secret-key` api secret key for fetching metric from provider
 - `--region`
 
 - ELB, RDS are posted as independent hosts
